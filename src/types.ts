@@ -1,101 +1,116 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Core type definitions for the Brachistochrone Curve Lab
  */
-
-export type LabTab = 'brachistochrone' | 'fermat' | 'action' | 'trajectory' | 'rl' | 'knowledge_guide' | 'experiment_guide';
 
 export interface Point2D {
   x: number;
   y: number;
-  id?: string;
-  isControl?: boolean;
 }
 
-// 1. 最速降线动力学类型
-export interface BrachistochronePreset {
+export type ModuleTab =
+  | "modeling"
+  | "sandbox"
+  | "rolling"
+  | "tautochrone"
+  | "cases"
+  | "code"
+  | "ai"
+  | "knowledge"
+  | "report";
+
+export interface CurvePhysicsData {
   id: string;
   name: string;
-  description: string;
-  curveType: 'straight' | 'linear' | 'arc' | 'cycloid' | 'parabola' | 'custom';
-}
-
-export interface BallState {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  time: number;
-  pathIndex: number;
-  energyK: number;
-  energyV: number;
-  history: Point2D[];
-  finished: boolean;
-}
-
-// 2. 费马光学工坊类型
-export interface OpticLayer {
-  id: string;
-  name: string;
-  yStart: number;
-  yEnd: number;
-  n: number; // 折射率
+  nameEn: string;
   color: string;
-}
-
-export interface LightRay {
+  formula: string;
   points: Point2D[];
-  totalTime: number;
-  pathLength: number;
+  totalTime: number; // in seconds
+  finalVelocity: number; // in m/s
+  arcLength: number; // in meters
+  progress: number; // 0 to 1
+  currentPos: Point2D;
+  currentVelocity: number;
+  timeElapsed: number;
+  isFinished: boolean;
+  rank?: number;
+  timeMap?: number[];
+  velMap?: number[];
+  distMap?: number[];
+  velocityHistory: { t: number; v: number; x: number; y: number }[];
 }
 
-// 3. 最小作用量引擎类型
-export interface ActionPath {
-  id: string;
-  name: string;
-  points: Point2D[];
-  actionS: number; // 作用量 S = ∫(T - V) dt
-  color: string;
-  isPhysical?: boolean;
+export interface SandboxConfig {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  gravity: number; // m/s^2, default 9.8
+  friction: number; // friction coefficient mu, default 0
+  airDrag: number; // aerodynamic drag coefficient, default 0.0
+  dragModel: "none" | "linear" | "quadratic"; // Stokes (F=-k*v) or Newtonian (F=-k*v^2)
+  timeScale: number; // 0.2, 0.5, 1, 2, 5
+  ballRadius: number; // meters in world coordinates
+  showGrid: boolean;
+  showTrails: boolean;
+  showVectors: boolean;
+  showEnergy: boolean;
 }
 
-// 4. 轨迹优化中心类型
-export interface Obstacle {
-  id: string;
-  x: number;
-  y: number;
+export interface RollingCircleState {
   radius: number;
-  pulse?: boolean;
+  theta: number; // 0 to 2*PI or more
+  isPlaying: boolean;
+  speed: number;
+  showTrail: boolean;
+  showVectors: boolean;
+  showAuxiliary: boolean;
 }
 
-export interface TrajectoryPoint extends Point2D {
-  vx: number;
-  vy: number;
-  ax: number;
-  ay: number;
-  t: number;
+export interface TautochroneBall {
+  id: number;
+  startRatio: number; // 0.1 to 1.0 (starting height fraction)
+  currentTheta: number;
+  startTheta: number;
+  pos: Point2D;
+  velocity: number;
+  timeElapsed: number;
+  isFinished: boolean;
+  color: string;
 }
 
-export interface ControlCost {
-  timeCost: number;
-  energyCost: number;
-  obstaclePenalty: number;
-  totalCost: number;
+export interface CaseStudy {
+  id: string;
+  title: string;
+  category: string;
+  subtitle: string;
+  description: string;
+  formula: string;
+  parameters: {
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    gravity: number;
+    friction: number;
+  };
+  keyInsight: string;
+  historyNote: string;
 }
 
-// 5. 强化学习控制类型
-export interface RLAgent {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  cumulativeReward: number;
-  steps: number;
-  history: Point2D[];
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: string;
+  isFallback?: boolean;
 }
 
-export interface RLGridCell {
-  x: number;
-  y: number;
-  value: number; // 奖励值/值函数估计
+export interface PythonCodeSnippet {
+  id: string;
+  title: string;
+  description: string;
+  code: string;
+  outputMock: string;
+  category: "bvp" | "optimization" | "analytical" | "rk4";
 }

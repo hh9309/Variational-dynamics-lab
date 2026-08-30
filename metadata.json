@@ -1,6 +1,6 @@
 {
-  "name": "极值变分动力学 AI 实验室",
-  "description": "基于最速降线、费马光学原理、最小作用量原理与强化学习最优路径搜索的交互式仿真实验系统。",
+  "name": "最速降线与变分法原理实验室",
+  "description": "交互式最速降线物理沙盒、变分法欧拉-拉格朗日方程推导、旋轮线发生圆滚切动画、等时降落验证、六大工程经典案例、Python/SciPy数值求解与AI大模型诊断实验室。",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
