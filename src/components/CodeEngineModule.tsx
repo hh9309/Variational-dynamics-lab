@@ -57,27 +57,27 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_bvp
 
 # =====================================================================
-# 物理与边界几何参数 (起点 A(0,0) 到 终点 B(10,8))
+# Physical and Boundary Geometry Parameters (Start A(0,0) to End B(10,8))
 # =====================================================================
-g = 9.8       # 重力加速度 (m/s^2)
-X_end = 10.0  # 终点横坐标 (m)
-Y_end = 8.0   # 终点垂直落差深度 (m)
+g = 9.8       # Gravitational acceleration (m/s^2)
+X_end = 10.0  # End point X coordinate (m)
+Y_end = 8.0   # End point vertical drop depth (m)
 
 # ---------------------------------------------------------------------
-# 变分参数化微分方程系统 (无导数奇异性)
-# 自变量 tau in [0, 1]
-# 状态变量: u[0] = x(tau), u[1] = y(tau)
-# 待定系统参数: p[0] = 发生圆半径 r, p[1] = 终点滚动角 theta_end
+# Parameterized ODE System without Derivative Singularity
+# Independent variable: tau in [0, 1]
+# State variables: u[0] = x(tau), u[1] = y(tau)
+# Free parameters: p[0] = circle radius r, p[1] = end rolling angle theta_end
 # ---------------------------------------------------------------------
 def ode_system(tau, u, p):
     r, theta_end = p[0], p[1]
     theta = theta_end * tau
-    # 变分欧拉-拉格朗日旋轮线解析微分方程
+    # Variational Euler-Lagrange cycloid analytical ODE system
     dx_dtau = theta_end * r * (1.0 - np.cos(theta))
     dy_dtau = theta_end * r * np.sin(theta)
     return np.vstack((dx_dtau, dy_dtau))
 
-# 两端固定边界条件: A(0,0) 与 B(X_end, Y_end)
+# Two-point fixed boundary conditions: A(0,0) and B(X_end, Y_end)
 def boundary_conditions(ua, ub, p):
     return np.array([
         ua[0],               # x(0) = 0
@@ -86,14 +86,14 @@ def boundary_conditions(ua, ub, p):
         ub[1] - Y_end        # y(1) = Y_end
     ])
 
-# 初始化无奇异性网格与初始猜测
+# Initialize singularity-free mesh and initial guess
 tau_mesh = np.linspace(0.0, 1.0, 100)
 u_guess = np.zeros((2, tau_mesh.size))
 u_guess[0] = X_end * tau_mesh
 u_guess[1] = Y_end * tau_mesh
-p_guess = [2.5, 3.5]  # r 和 theta_end 的合理初值猜测
+p_guess = [2.5, 3.5]  # Initial guess for r and theta_end
 
-# 执行 SciPy solve_bvp 两点边界值求解
+# Solve two-point BVP via SciPy solve_bvp
 res = solve_bvp(ode_system, boundary_conditions, tau_mesh, u_guess, p=p_guess, tol=1e-6)
 
 if res.success:
@@ -102,55 +102,54 @@ if res.success:
     sol_fine = res.sol(tau_fine)
     x_sol, y_sol = sol_fine[0], sol_fine[1]
     
-    # 解析计算下落总耗时 T = theta_end * sqrt(r / g)
+    # Analytical slide time T = theta_end * sqrt(r / g)
     total_time = theta_end_sol * np.sqrt(r_sol / g)
     
-    # 沿数值解轨迹使用梯形法则二次验证时间泛函积分
-    # v = sqrt(2 * g * y), dt = ds / v
+    # Trapezoidal rule numerical validation along trajectory
     dx = np.gradient(x_sol)
     dy = np.gradient(y_sol)
     ds = np.sqrt(dx**2 + dy**2)
     v_safe = np.sqrt(2.0 * g * np.maximum(y_sol, 1e-6))
     time_integral = np.sum(ds[1:] / v_safe[1:])
     
-    # 直线参考路径耗时
+    # Linear reference path slide time
     T_line = np.sqrt(2.0 * (X_end**2 + Y_end**2) / (g * Y_end))
     
-    print("=== SciPy solve_bvp 变分边界值求解成功 ===")
-    print(f"求解器状态:        {res.message}")
-    print(f"迭代次数 (Niter):   {res.niter}")
-    print(f"网格节点数:        {res.x.size}")
-    print(f"发生圆半径 r:       {r_sol:.4f} m")
-    print(f"终点滚动角 theta:   {theta_end_sol:.4f} rad ({theta_end_sol / np.pi:.3f} pi)")
-    print(f"最速降线耗时 T:     {total_time:.4f} s (数值积分: {time_integral:.4f} s)")
-    print(f"直线路径耗时:       {T_line:.4f} s")
-    print(f"相对直线效率提升:   {((T_line - total_time) / T_line) * 100:.2f}%")
+    print("=== SciPy solve_bvp: Variational Boundary Value Solution ===")
+    print(f"Solver Status:          {res.message}")
+    print(f"Iterations (Niter):     {res.niter}")
+    print(f"Mesh Nodes:             {res.x.size}")
+    print(f"Rolling Radius r:       {r_sol:.4f} m")
+    print(f"End Angle theta:        {theta_end_sol:.4f} rad ({theta_end_sol / np.pi:.3f} pi)")
+    print(f"Brachistochrone Time T: {total_time:.4f} s (Numerical: {time_integral:.4f} s)")
+    print(f"Linear Path Time:       {T_line:.4f} s")
+    print(f"Time Improvement:       {((T_line - total_time) / T_line) * 100:.2f}%")
     
-    # Matplotlib 绘图 (兼容任何本地 Python/Spyder/Jupyter 环境)
+    # Matplotlib Plot
     plt.figure(figsize=(9, 5), dpi=100)
-    plt.plot(x_sol, y_sol, 'b-', lw=2.5, label=f'最速降线 (BVP 数值解, T={total_time:.4f}s)')
-    plt.plot([0, X_end], [0, Y_end], 'r--', lw=1.5, label=f'直线参考路径 (T={T_line:.4f}s)')
-    plt.scatter([0, X_end], [0, Y_end], color='black', zorder=5, label='固定边界 A(0,0), B(10,8)')
-    plt.gca().invert_yaxis()  # 深度轴向下为正
+    plt.plot(x_sol, y_sol, 'b-', lw=2.5, label=f'Brachistochrone (BVP, T={total_time:.4f}s)')
+    plt.plot([0, X_end], [0, Y_end], 'r--', lw=1.5, label=f'Linear Reference Path (T={T_line:.4f}s)')
+    plt.scatter([0, X_end], [0, Y_end], color='black', zorder=5, label='Fixed Endpoints A(0,0), B(10,8)')
+    plt.gca().invert_yaxis()  # Invert Y axis for depth downwards
     plt.title("SciPy solve_bvp: Brachistochrone Variational Solution", fontsize=12)
-    plt.xlabel("水平距离 X (m)", fontsize=10)
-    plt.ylabel("下落深度 Y (m)", fontsize=10)
+    plt.xlabel("Horizontal Distance X (m)", fontsize=10)
+    plt.ylabel("Vertical Depth Y (m)", fontsize=10)
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower left')
     plt.tight_layout()
     plt.show()
 else:
-    print(f"求解失败: {res.message}")
+    print(f"Solver Failed: {res.message}")
 `,
-    terminalOutput: `=== SciPy solve_bvp 变分边界值求解成功 ===
-求解器状态:        The algorithm converged to the desired accuracy.
-迭代次数 (Niter):   4
-网格节点数:        100
-发生圆半径 r:       2.8943 m
-终点滚动角 theta:   3.8215 rad (1.216 pi)
-最速降线耗时 T:     1.4172 s (数值积分: 1.4170 s)
-直线路径耗时:       1.6366 s
-相对直线效率提升:   13.41%
+    terminalOutput: `=== SciPy solve_bvp: Variational Boundary Value Solution ===
+Solver Status:          The algorithm converged to the desired accuracy.
+Iterations (Niter):     4
+Mesh Nodes:             100
+Rolling Radius r:       2.8943 m
+End Angle theta:        3.8215 rad (1.216 pi)
+Brachistochrone Time T: 1.4172 s (Numerical: 1.4170 s)
+Linear Path Time:       1.6366 s
+Time Improvement:       13.41%
 
 [Process finished with exit code 0 in 0.046s]`,
     execStats: {
@@ -172,7 +171,7 @@ else:
     ],
     plotCurves: [
       {
-        name: "最速降线 (BVP 数值解)",
+        name: "Brachistochrone (BVP Solution)",
         color: "#2563EB",
         strokeWidth: 3,
         points: [
@@ -188,7 +187,7 @@ else:
         ],
       },
       {
-        name: "直线参考路径 (Linear)",
+        name: "Linear Reference Path",
         color: "#DC2626",
         strokeWidth: 1.5,
         strokeDasharray: "4 4",
@@ -210,28 +209,28 @@ else:
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
-# 离散几何与物理参数
-N = 60  # 离散插值节点数量
+# Discrete geometric and physical parameters
+N = 60  # Number of discretization nodes
 X_end, Y_end, g = 10.0, 8.0, 9.8
 x_nodes = np.linspace(0.0, X_end, N)
 dx = x_nodes[1] - x_nodes[0]
 
-# 目标泛函: 总下滑时间 T(y_1, y_2, ..., y_{N-2})
+# Objective functional: Total sliding time T(y_1, y_2, ..., y_{N-2})
 def total_time_functional(y_inner):
     y = np.concatenate(([0.0], y_inner, [Y_end]))
     dy = np.diff(y)
     ds = np.sqrt(dx**2 + dy**2)
-    # 中点下落速度 v_mid = sqrt(2 * g * y_mid)
+    # Midpoint velocity v_mid = sqrt(2 * g * y_mid)
     y_mid = 0.5 * (y[:-1] + y[1:])
     y_mid_safe = np.clip(y_mid, 1e-6, None)
     v_mid = np.sqrt(2.0 * g * y_mid_safe)
     return np.sum(ds / v_mid)
 
-# 初始直线猜测
+# Initial linear guess
 y0 = np.linspace(0.0, Y_end, N)[1:-1]
 bounds = [(0.001, 25.0) for _ in range(N - 2)]
 
-# 执行 SLSQP 约束非线性优化
+# Run SLSQP constrained non-linear optimization
 res = minimize(
     total_time_functional, 
     y0, 
@@ -244,35 +243,35 @@ y_opt = np.concatenate(([0.0], res.x, [Y_end]))
 t_linear = total_time_functional(y0)
 t_opt = res.fun
 
-print("=== SLSQP 泛函离散直接优化完成 ===")
-print(f"优化状态:       {res.message}")
-print(f"优化迭代次数:   {res.nit}")
-print(f"目标函数评估数: {res.nfev}")
-print(f"最速降线耗时:   {t_opt:.4f} s")
-print(f"直线路径耗时:   {t_linear:.4f} s")
-print(f"优化提升效率:   {((t_linear - t_opt) / t_linear) * 100:.2f}%")
+print("=== SLSQP Direct Discrete Functional Optimization ===")
+print(f"Optimization Status:    {res.message}")
+print(f"Iterations (Nit):       {res.nit}")
+print(f"Function Evaluations:   {res.nfev}")
+print(f"Brachistochrone Time:   {t_opt:.4f} s")
+print(f"Linear Path Time:       {t_linear:.4f} s")
+print(f"Time Improvement:       {((t_linear - t_opt) / t_linear) * 100:.2f}%")
 
-# Matplotlib 绘图 (可在任何本地 Python 环境独立执行)
+# Matplotlib Plot
 plt.figure(figsize=(9, 5), dpi=100)
-plt.plot(x_nodes, y_opt, 'g-', lw=2.5, label=f'SLSQP 优化最优路径 (T={t_opt:.4f}s)')
-plt.plot(x_nodes, np.linspace(0, Y_end, N), 'r--', lw=1.5, label=f'初始直线猜测 (T={t_linear:.4f}s)')
-plt.scatter(x_nodes[::6], y_opt[::6], color='green', s=25, label='离散优化控制节点')
+plt.plot(x_nodes, y_opt, 'g-', lw=2.5, label=f'SLSQP Optimized Path (T={t_opt:.4f}s)')
+plt.plot(x_nodes, np.linspace(0, Y_end, N), 'r--', lw=1.5, label=f'Initial Linear Guess (T={t_linear:.4f}s)')
+plt.scatter(x_nodes[::6], y_opt[::6], color='green', s=25, label='Discrete Control Nodes')
 plt.gca().invert_yaxis()
 plt.title("Direct Discretization Optimization via SLSQP", fontsize=12)
-plt.xlabel("水平距离 X (m)", fontsize=10)
-plt.ylabel("下落深度 Y (m)", fontsize=10)
+plt.xlabel("Horizontal Distance X (m)", fontsize=10)
+plt.ylabel("Vertical Depth Y (m)", fontsize=10)
 plt.grid(True, linestyle=':', alpha=0.6)
 plt.legend(loc='lower left')
 plt.tight_layout()
 plt.show()
 `,
-    terminalOutput: `=== SLSQP 泛函离散直接优化完成 ===
-优化状态:       Optimization terminated successfully
-优化迭代次数:   28
-目标函数评估数: 870
-最速降线耗时:   1.4185 s
-直线路径耗时:   1.6366 s
-优化提升效率:   13.33%
+    terminalOutput: `=== SLSQP Direct Discrete Functional Optimization ===
+Optimization Status:    Optimization terminated successfully
+Iterations (Nit):       28
+Function Evaluations:   870
+Brachistochrone Time:   1.4185 s
+Linear Path Time:       1.6366 s
+Time Improvement:       13.33%
 
 [Process finished with exit code 0 in 0.112s]`,
     execStats: {
@@ -292,7 +291,7 @@ plt.show()
     ],
     plotCurves: [
       {
-        name: "SLSQP 优化最优路径",
+        name: "SLSQP Optimized Path",
         color: "#059669",
         strokeWidth: 3,
         points: [
@@ -305,7 +304,7 @@ plt.show()
         ],
       },
       {
-        name: "初始直线猜测",
+        name: "Initial Linear Guess",
         color: "#DC2626",
         strokeWidth: 1.5,
         strokeDasharray: "4 4",
@@ -329,53 +328,54 @@ from scipy.optimize import root_scalar
 
 X, Y, g = 10.0, 8.0, 9.8
 
-# 摆线边界匹配非线性方程: (1 - cos(theta)) / (theta - sin(theta)) = Y / X
+# Cycloid boundary matching nonlinear equation: (1 - cos(theta)) / (theta - sin(theta)) = Y / X
 def obj_func(theta):
     denom = theta - np.sin(theta)
     if denom < 1e-12:
         return 1e6
     return (1.0 - np.cos(theta)) / denom - (Y / X)
 
-# 使用 Brentq 算法在安全无奇异区间内高精度求根
+# High-precision root finding via Brentq method in singularity-free bracket
 sol = root_scalar(obj_func, bracket=[1e-4, 2.0 * np.pi - 1e-4], method='brentq')
 theta2 = sol.root
 r = Y / (1.0 - np.cos(theta2))
 
-# 解析下落总时间闭式解: T = theta_2 * sqrt(r / g)
+# Closed-form slide time: T = theta_2 * sqrt(r / g)
 T_analytical = theta2 * np.sqrt(r / g)
+T_linear = np.sqrt(2.0 * (X**2 + Y**2) / (g * Y))
 
-print("=== 摆线解析参数求根结果 ===")
-print(f"求根迭代状态:       {sol.converged}")
-print(f"发生圆半径 r:       {r:.4f} m")
-print(f"终点滚动角 theta_2: {theta2:.4f} rad ({theta2 / np.pi:.3f} pi)")
-print(f"解析下落总时间 T:   {T_analytical:.4f} s")
-print(f"方程零点残差:       {obj_func(theta2):.2e}")
+print("=== Cycloid Analytical Parameter Root Finding ===")
+print(f"Root Finding Status:    {sol.converged}")
+print(f"Rolling Radius r:       {r:.4f} m")
+print(f"End Angle theta_2:      {theta2:.4f} rad ({theta2 / np.pi:.3f} pi)")
+print(f"Analytical Slide Time:  {T_analytical:.4f} s")
+print(f"Root Residual:          {obj_func(theta2):.2e}")
 
-# 生成平滑解析旋轮线数据点
+# Generate smooth analytical cycloid trajectory
 theta_arr = np.linspace(0.0, theta2, 200)
 x_cycloid = r * (theta_arr - np.sin(theta_arr))
 y_cycloid = r * (1.0 - np.cos(theta_arr))
 
-# Matplotlib 绘图 (可在任何本地 Python 环境独立执行)
+# Matplotlib Plot
 plt.figure(figsize=(9, 5), dpi=100)
-plt.plot(x_cycloid, y_cycloid, 'm-', lw=2.5, label=f'解析摆线 (r={r:.3f}m, T={T_analytical:.4f}s)')
-plt.plot([0, X], [0, Y], 'r--', lw=1.5, label='直线路径')
-plt.scatter([x_cycloid[0], x_cycloid[-1]], [y_cycloid[0], y_cycloid[-1]], color='black', zorder=5)
+plt.plot(x_cycloid, y_cycloid, 'm-', lw=2.5, label=f'Exact Cycloid (r={r:.3f}m, T={T_analytical:.4f}s)')
+plt.plot([0, X], [0, Y], 'r--', lw=1.5, label=f'Linear Path (T={T_linear:.4f}s)')
+plt.scatter([x_cycloid[0], x_cycloid[-1]], [y_cycloid[0], y_cycloid[-1]], color='black', zorder=5, label='Fixed Endpoints A(0,0), B(10,8)')
 plt.gca().invert_yaxis()
 plt.title("Exact Analytical Cycloid via Root Scalar Solution", fontsize=12)
-plt.xlabel("水平距离 X (m)", fontsize=10)
-plt.ylabel("下落深度 Y (m)", fontsize=10)
+plt.xlabel("Horizontal Distance X (m)", fontsize=10)
+plt.ylabel("Vertical Depth Y (m)", fontsize=10)
 plt.grid(True, linestyle=':', alpha=0.6)
 plt.legend(loc='lower left')
 plt.tight_layout()
 plt.show()
 `,
-    terminalOutput: `=== 摆线解析参数求根结果 ===
-求根迭代状态:       True
-发生圆半径 r:       2.8943 m
-终点滚动角 theta_2: 3.8215 rad (1.216 pi)
-解析下落总时间 T:   1.4172 s
-方程零点残差:       0.00e+00
+    terminalOutput: `=== Cycloid Analytical Parameter Root Finding ===
+Root Finding Status:    True
+Rolling Radius r:       2.8943 m
+End Angle theta_2:      3.8215 rad (1.216 pi)
+Analytical Slide Time:  1.4172 s
+Root Residual:          0.00e+00
 
 [Process finished with exit code 0 in 0.038s]`,
     execStats: {
@@ -395,7 +395,7 @@ plt.show()
     ],
     plotCurves: [
       {
-        name: "解析摆线 (Exact Cycloid)",
+        name: "Exact Cycloid",
         color: "#9333EA",
         strokeWidth: 3,
         points: [
@@ -408,7 +408,7 @@ plt.show()
         ],
       },
       {
-        name: "直线路径",
+        name: "Linear Path",
         color: "#DC2626",
         strokeWidth: 1.5,
         strokeDasharray: "4 4",
@@ -430,21 +430,21 @@ plt.show()
 import matplotlib.pyplot as plt
 
 # =====================================================================
-# 4 种轨道的经典 RK4 动力学数值积分器
+# Classical RK4 Multi-Track Dynamics Numerical Integrator
 # =====================================================================
 def integrate_track_rk4(x_pts, y_pts, g=9.8, mu=0.0):
     dx = np.diff(x_pts)
     dy = np.diff(y_pts)
     ds = np.sqrt(dx**2 + dy**2)
     
-    # 局部倾角 alpha: sin(alpha) = dy/ds, cos(alpha) = dx/ds
+    # Local slope angle alpha: sin(alpha) = dy/ds, cos(alpha) = dx/ds
     sin_alpha = dy / ds
     cos_alpha = dx / ds
     
-    # 状态量: 弧长 s, 速度 v, 时间 t
+    # State variables: arc length s, velocity v, time t
     dt = 0.0005
     s_curr = 0.0
-    v_curr = 1e-4  # 微小初速避免静摩擦死锁
+    v_curr = 1e-4  # Small initial perturbation to prevent friction lock
     t_curr = 0.0
     
     t_hist = [0.0]
@@ -454,14 +454,14 @@ def integrate_track_rk4(x_pts, y_pts, g=9.8, mu=0.0):
     cum_s = np.concatenate(([0.0], np.cumsum(ds)))
     
     def accel(s_val, v_val):
-        # 查找当前位置所在的线元倾角
+        # Find element slope at current position
         idx = np.searchsorted(cum_s, s_val) - 1
         idx = np.clip(idx, 0, len(ds) - 1)
         a_tan = g * sin_alpha[idx] - mu * g * cos_alpha[idx]
         return max(a_tan, 0.0)
     
     while s_curr < total_len and t_curr < 10.0:
-        # 经典 4 阶龙格-库塔算法 (RK4)
+        # Classical 4th-order Runge-Kutta (RK4)
         k1_v = accel(s_curr, v_curr)
         k1_s = v_curr
         
@@ -488,33 +488,33 @@ def run_race_simulation():
     N = 300
     x_grid = np.linspace(0.0, X, N)
     
-    # 1. 摆线 (Cycloid)
+    # 1. Cycloid (Brachistochrone)
     r = 2.8943
     th_grid = np.linspace(0.0, 3.8215, N)
     x_cyc = r * (th_grid - np.sin(th_grid))
     y_cyc = r * (1.0 - np.cos(th_grid))
     
-    # 2. 抛物线 (Parabola)
+    # 2. Parabola
     x_par = x_grid
     y_par = Y * np.sqrt(x_grid / X)
     
-    # 3. 圆弧 (Circular Arc)
+    # 3. Circular Arc
     R_circ = (X**2 + Y**2) / (2.0 * X)
     x_circ = x_grid
     y_circ = R_circ - np.sqrt(np.maximum(R_circ**2 - (x_grid - X)**2, 0.0)) + (Y - R_circ)
     
-    # 4. 直线 (Straight Line)
+    # 4. Straight Line
     x_line = x_grid
     y_line = (Y / X) * x_grid
     
     track_defs = [
-        ("摆线 (最速降线)", x_cyc, y_cyc, '#2563EB', '-'),
-        ("前倾抛物线",     x_par, y_par, '#D97706', '-.'),
-        ("圆弧轨道",       x_circ, y_circ, '#10B981', ':'),
-        ("直线路径",       x_line, y_line, '#EF4444', '--'),
+        ("Cycloid (Brachistochrone)", x_cyc, y_cyc, '#2563EB', '-'),
+        ("Forward Parabola",          x_par, y_par, '#D97706', '-.'),
+        ("Circular Arc Track",        x_circ, y_circ, '#10B981', ':'),
+        ("Straight Line Path",        x_line, y_line, '#EF4444', '--'),
     ]
     
-    print(f"=== RK4 四阶龙格-库塔动力学赛跑仿真 (g={g} m/s^2, mu={mu}) ===")
+    print(f"=== RK4 Numerical Dynamics Race Simulation (g={g} m/s^2, mu={mu}) ===")
     results = []
     for name, xp, yp, col, ls in track_defs:
         t_arr, v_arr, t_end, v_end = integrate_track_rk4(xp, yp, g, mu)
@@ -522,16 +522,16 @@ def run_race_simulation():
         
     results.sort(key=lambda item: item[3])
     for rank, (name, _, _, t_end, v_end, _, _) in enumerate(results, 1):
-        print(f"第 {rank} 名 | {name:<14} | 耗时: {t_end:.4f} s | 末速度: {v_end:.2f} m/s")
+        print(f"Rank {rank} | {name:<26} | Time: {t_end:.4f} s | Final Vel: {v_end:.2f} m/s")
         
-    # Matplotlib 绘图
+    # Matplotlib Plot
     plt.figure(figsize=(9, 5), dpi=100)
     for name, t_arr, v_arr, t_end, v_end, col, ls in results:
         plt.plot(t_arr, v_arr, color=col, linestyle=ls, lw=2.2, label=f'{name} (T={t_end:.4f}s)')
         
     plt.title("RK4 Velocity vs Time Trajectory Across Curves", fontsize=12)
-    plt.xlabel("下滑时间 Time t (s)", fontsize=10)
-    plt.ylabel("瞬时速度 Velocity v (m/s)", fontsize=10)
+    plt.xlabel("Time t (s)", fontsize=10)
+    plt.ylabel("Instantaneous Velocity v (m/s)", fontsize=10)
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower right')
     plt.tight_layout()
@@ -540,11 +540,11 @@ def run_race_simulation():
 if __name__ == '__main__':
     run_race_simulation()
 `,
-    terminalOutput: `=== RK4 四阶龙格-库塔动力学赛跑仿真 (g=9.8 m/s^2, mu=0.0) ===
-第 1 名 | 摆线 (最速降线)  | 耗时: 1.4172 s | 末速度: 12.52 m/s
-第 2 名 | 前倾抛物线       | 耗时: 1.4480 s | 末速度: 12.52 m/s
-第 3 名 | 圆弧轨道         | 耗时: 1.4821 s | 末速度: 12.52 m/s
-第 4 名 | 直线路径         | 耗时: 1.6366 s | 末速度: 12.52 m/s
+    terminalOutput: `=== RK4 Numerical Dynamics Race Simulation (g=9.8 m/s^2, mu=0.0) ===
+Rank 1 | Cycloid (Brachistochrone)   | Time: 1.4172 s | Final Vel: 12.52 m/s
+Rank 2 | Forward Parabola           | Time: 1.4480 s | Final Vel: 12.52 m/s
+Rank 3 | Circular Arc Track         | Time: 1.4821 s | Final Vel: 12.52 m/s
+Rank 4 | Straight Line Path         | Time: 1.6366 s | Final Vel: 12.52 m/s
 
 [Process finished with exit code 0 in 0.082s]`,
     execStats: {
@@ -563,7 +563,7 @@ if __name__ == '__main__':
     ],
     plotCurves: [
       {
-        name: "摆线 (最速降线)",
+        name: "Cycloid (Brachistochrone)",
         color: "#2563EB",
         strokeWidth: 3,
         points: [
@@ -575,7 +575,7 @@ if __name__ == '__main__':
         ],
       },
       {
-        name: "前倾抛物线",
+        name: "Forward Parabola",
         color: "#D97706",
         strokeWidth: 2,
         points: [
@@ -587,7 +587,7 @@ if __name__ == '__main__':
         ],
       },
       {
-        name: "圆弧轨道",
+        name: "Circular Arc Track",
         color: "#10B981",
         strokeWidth: 2,
         strokeDasharray: "3 3",
@@ -600,7 +600,7 @@ if __name__ == '__main__':
         ],
       },
       {
-        name: "直线路径",
+        name: "Straight Line Path",
         color: "#EF4444",
         strokeWidth: 1.5,
         strokeDasharray: "4 4",
@@ -870,13 +870,13 @@ export const CodeEngineModule: React.FC = () => {
                 {/* Key Metrics Quick Box */}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-lg border border-[#E0E4E8] bg-[#F8FAFC] p-2">
-                    <span className="text-[10px] text-[#64748B] block">最速降线数值下落总耗时</span>
+                    <span className="text-[10px] text-[#64748B] block">Brachistochrone Time T</span>
                     <span className="font-mono text-sm font-bold text-emerald-700">
                       {activeSnippet.execStats.finalTime.toFixed(4)} s
                     </span>
                   </div>
                   <div className="rounded-lg border border-[#E0E4E8] bg-[#F8FAFC] p-2">
-                    <span className="text-[10px] text-[#64748B] block">直线路径耗时</span>
+                    <span className="text-[10px] text-[#64748B] block">Linear Reference Time</span>
                     <span className="font-mono text-sm font-bold text-[#2C3E50]">
                       {activeSnippet.execStats.baselineTime.toFixed(4)} s
                     </span>
@@ -909,9 +909,9 @@ export const CodeEngineModule: React.FC = () => {
                   <thead className="bg-[#EEF2F5] text-[#2C3E50] border-b border-[#E0E4E8]">
                     <tr>
                       <th className="p-2">X (m)</th>
-                      <th className="p-2">Y 深度 (m)</th>
-                      <th className="p-2">速度 v (m/s)</th>
-                      <th className="p-2">时间 t (s)</th>
+                      <th className="p-2">Y Depth (m)</th>
+                      <th className="p-2">Velocity v (m/s)</th>
+                      <th className="p-2">Time t (s)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E0E4E8] bg-white">
